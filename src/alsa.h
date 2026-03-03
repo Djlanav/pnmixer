@@ -29,6 +29,9 @@ enum alsa_event {
 };
 typedef void (*AlsaCb) (enum alsa_event event, gpointer data);
 
+typedef struct _snd_mixer snd_mixer_t;
+typedef struct _snd_mixer_elem snd_mixer_elem_t;
+
 typedef struct alsa_card {
 	gboolean normalize; /* Whether we work with normalized volume */
 	/* Card names */

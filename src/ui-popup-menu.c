@@ -95,19 +95,6 @@ update_mute_item(GtkCheckMenuItem *mute_item, GCallback handler_func,
 
 /* Public functions & signal handlers */
 
-struct popup_menu {
-	/* Audio system */
-	Audio *audio;
-	/* Widgets */
-	GtkWidget *menu_window;
-	GtkWidget *menu;
-#ifdef WITH_GTK3
-	GtkWidget *mute_check;
-#else
-	GtkWidget *mute_item;
-#endif
-};
-
 /**
  * Handles a click on 'mute_item', toggling the mute audio state.
  *
@@ -262,9 +249,7 @@ popup_menu_create(Audio *audio)
 {
 	gchar *uifile;
 	GtkBuilder *builder;
-	PopupMenu *menu;
-
-	menu = g_new0(PopupMenu, 1);
+	PopupMenu *menu = g_new0(PopupMenu, 1);
 
 	/* Build UI file */
 	uifile = get_ui_file(POPUP_MENU_UI_FILE);

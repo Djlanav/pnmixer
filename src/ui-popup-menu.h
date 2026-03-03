@@ -19,7 +19,18 @@
 
 #include "audio.h"
 
-typedef struct popup_menu PopupMenu;
+typedef struct popup_menu {
+    /* Audio system */
+    Audio *audio;
+    /* Widgets */
+    GtkWidget *menu_window;
+    GtkWidget *menu;
+#ifdef WITH_GTK3
+    GtkWidget *mute_check;
+#else
+    GtkWidget *mute_item;
+#endif
+} PopupMenu;
 
 PopupMenu *popup_menu_create(Audio *audio);
 void popup_menu_destroy(PopupMenu *menu);

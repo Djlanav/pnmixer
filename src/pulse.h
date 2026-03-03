@@ -9,13 +9,6 @@ struct pa_mainloop_api;
 struct pa_glib_mainloop;
 struct pa_context;
 
-typedef enum pulseaudioinitstatus {
-    PULSEAUDIO_INIT_STATUS_INITIALIZED,
-    MAINLOOP_INIT_FAILED,
-    MAINLOOP_API_INIT_FAILED,
-    CONTEXT_INIT_FAILED,
-} EPulseAudioInitStatus;
-
 typedef enum result {
     SUCCESS,
     FAILURE,
@@ -34,6 +27,8 @@ typedef struct pulseaudioinfo {
     gchar *user_name;
 } SPulseAudioInfo;
 
+SPulseAudioState* try_init_pulseaudio();
 void on_context_state_changed(pa_context *context, void *user_data);
+void free_pulseaudio(SPulseAudioState* state);
 
 #endif //PNMIXER_PULSE_H

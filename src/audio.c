@@ -730,8 +730,6 @@ end:
 void
 audio_reload(Audio *audio)
 {
-
-
 	/* Get preferences */
 	g_free(audio->card);
 	audio->card = prefs_get_string("AlsaCard", NULL);

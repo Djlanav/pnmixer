@@ -2,33 +2,34 @@
 // Created by cmh on 3/2/26.
 //
 
-#include <syslog.h>
 #include <pulse/pulseaudio.h>
-#include <glib.h>
 #include <pulse/glib-mainloop.h>
+#include <syslog.h>
+#include <glib.h>
 #include "pulse.h"
 
-EPulseAudioInitStatus
-try_init_pulseaudio(SPulseAudioState *state, GMainContext *main_context)
+SPulseAudioState*
+try_init_pulseaudio()
 {
+    SPulseAudioState* state = g_new(SPulseAudioState, 1);
     openlog("pnmixer-pulse", LOG_PID | LOG_CONS, LOG_USER);
 
-    pa_glib_mainloop* mainloop = pa_glib_mainloop_new(main_context);
+    pa_glib_mainloop* mainloop = pa_glib_mainloop_new(NULL);
     if (!mainloop) {
         syslog(LOG_USER | LOG_ERR, "Failed to create PulseAudio mainloop");
-        return MAINLOOP_INIT_FAILED;
+        return NULL;
     }
 
     pa_mainloop_api *mainloop_api = pa_glib_mainloop_get_api(mainloop);
     if (!mainloop_api) {
         syslog(LOG_USER | LOG_ERR, "Failed to create PulseAudio mainloop_api");
-        return MAINLOOP_INIT_FAILED;
+        return NULL;
     }
 
     pa_context* context = pa_context_new(mainloop_api, "pnmixer-pulse");
     if (!context) {
         syslog(LOG_USER | LOG_ERR, "Failed to create PulseAudio context");
-        return CONTEXT_INIT_FAILED;
+        return NULL;
     }
     pa_context_set_state_callback(context, on_context_state_changed, NULL);
 
@@ -36,7 +37,8 @@ try_init_pulseaudio(SPulseAudioState *state, GMainContext *main_context)
     state->mainloop_api = mainloop_api;
     state->context = context;
 
-    return PULSEAUDIO_INIT_STATUS_INITIALIZED;
+    syslog(LOG_USER | LOG_INFO, "PulseAudio initialized");
+    return state;
 }
 
 EResult
@@ -102,11 +104,12 @@ on_context_state_changed(pa_context *context, void *user_data)
 }
 
 void
-free_pulseaudio(const SPulseAudioState *state)
+free_pulseaudio(SPulseAudioState *state)
 {
     pa_context_disconnect (state->context);
     syslog(LOG_USER | LOG_INFO, "Exiting PulseAudio");
 
     pa_glib_mainloop_free(state->mainloop);
     closelog ();
+    g_free((SPulseAudioState*)state);
 }
