@@ -87,14 +87,12 @@ audio_event_free(AudioEvent *event)
 static AudioEvent *
 audio_event_new(Audio *audio, AudioSignal signal, AudioUser user)
 {
-	AudioEvent *event;
-
 	/* At the moment there's no need to duplicate card/channel
 	 * name strings, so let's optimize a very little and make
 	 * them const pointers.
 	 */
 
-	event = g_new0(AudioEvent, 1);
+	AudioEvent *event = g_new0(AudioEvent, 1);
 
 	event->signal = signal;
 	event->user = user;
@@ -113,12 +111,10 @@ audio_event_new(Audio *audio, AudioSignal signal, AudioUser user)
  * It's the basic type that holds user signal handlers.
  */
 
-struct audio_handler {
+typedef struct audio_handler {
 	AudioCallback callback;
 	gpointer data;
-};
-
-typedef struct audio_handler AudioHandler;
+} AudioHandler;
 
 /* Free an audio handler */
 static void
@@ -131,9 +127,7 @@ audio_handler_free(AudioHandler *handler)
 static AudioHandler *
 audio_handler_new(AudioCallback callback, gpointer data)
 {
-	AudioHandler *handler;
-
-	handler = g_new0(AudioHandler, 1);
+	AudioHandler* handler = g_new0(AudioHandler, 1);
 	handler->callback = callback;
 	handler->data = data;
 
@@ -194,28 +188,6 @@ audio_handler_list_remove(GSList *list, AudioHandler *handler)
 /*
  * Public functions & signals handlers
  */
-
-struct audio {
-	/* Preferences */
-	gdouble scroll_step;
-	gboolean normalize;
-	/* Underlying sound card */
-	AlsaCard *soundcard;
-	/* Cached value (to avoid querying the underlying
-	 * sound card each time we need the info).
-	 */
-	gchar *card;
-	gchar *channel;
-	/* Last action performed (volume/mute change) */
-	gint64 last_action_timestamp;
-	/* True if we're not working with the preferred card */
-	gboolean fallback;
-	gint64 fallback_last_check;
-	/* User signal handlers.
-	 * To be invoked when the audio status changes.
-	 */
-	GSList *handlers;
-};
 
 /**
  * Convenient function to invoke the handlers
@@ -534,6 +506,9 @@ _audio_set_volume(Audio *audio, AudioUser user, gdouble cur_volume,
 	/* Set the volume */
 	DEBUG("Setting volume from %lg to %lg (dir: %d)",
 	      cur_volume, new_volume, dir);
+
+	// NOTE TO SELF: This calls into alsa
+	// MAJOR: VOLUME CHANGING BACKEND CALL TO ALSA FOUND
 	alsa_card_set_volume(soundcard, new_volume, dir);
 
 	/* Automatically unmute the volume */
@@ -566,17 +541,14 @@ _audio_set_volume(Audio *audio, AudioUser user, gdouble cur_volume,
 void
 audio_set_volume(Audio *audio, AudioUser user, gdouble new_volume, gint dir)
 {
-	AlsaCard *soundcard;
-	gdouble cur_volume;
-
 	if (audio_should_reload(audio))
 		audio_reload(audio);
 
-	soundcard = audio->soundcard;
+	AlsaCard *soundcard = audio->soundcard;
 	if (!soundcard)
 		return;
 
-	cur_volume = alsa_card_get_volume(soundcard);
+	gdouble cur_volume = alsa_card_get_volume(soundcard);
 	_audio_set_volume(audio, user, cur_volume, new_volume, dir);
 }
 
@@ -672,6 +644,7 @@ audio_hook_soundcard(Audio *audio)
 	/* Attempt to create the card */
 	DEBUG("Hooking soundcard '%s (%s)' to the audio system", audio->card, audio->channel);
 
+	// NOTE: some ALSA initialization
 	soundcard = alsa_card_new(audio->card, audio->channel, audio->normalize);
 	if (soundcard) {
 		audio->fallback = FALSE;
@@ -757,6 +730,8 @@ end:
 void
 audio_reload(Audio *audio)
 {
+
+
 	/* Get preferences */
 	g_free(audio->card);
 	audio->card = prefs_get_string("AlsaCard", NULL);
@@ -798,10 +773,7 @@ audio_free(Audio *audio)
 Audio *
 audio_new(void)
 {
-	Audio *audio;
-
-	audio = g_new0(Audio, 1);
-
+	Audio *audio = g_new0(Audio, 1);
 	return audio;
 }
 

@@ -285,7 +285,7 @@ on_popup_window_event(G_GNUC_UNUSED GtkWidget *widget, GdkEvent *event,
 
 /**
  * Handles the 'value-changed' signal on the GtkRange 'vol_scale',
- * changing the voume accordingly.
+ * changing the volume accordingly.
  *
  * There are many ways for the user to change the slider value.
  * Think about testing them all if you touch this function.
@@ -302,9 +302,16 @@ on_popup_window_event(G_GNUC_UNUSED GtkWidget *widget, GdkEvent *event,
 void
 on_vol_scale_value_changed(GtkRange *range, PopupWindow *window)
 {
+	// NOTE: This function appears to be the signal GTK calls when the volume slider is adjusted
+
 	gdouble value;
 
-	value = gtk_range_get_value(range);
+	value = gtk_range_get_value(range); // NOTE: This must get the value from the UI
+
+	/*
+	 * This function is found in audio.c
+	 *  This function is what calls into ALSA to change the volume
+	*/
 	audio_set_volume(window->audio, AUDIO_USER_POPUP, value, 0);
 }
 

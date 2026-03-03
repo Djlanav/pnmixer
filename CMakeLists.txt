@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 4.0)
 project(PNMixer)
 
 
@@ -36,12 +36,12 @@ option(DATA_IN_CWD "Whether to also look for data files in the current directory
 if(ENABLE_NLS)
 	# find gettext programs
 	find_package(Gettext)
-	FIND_PROGRAM(XGETTEXT_EXECUTABLE xgettext)
-	IF(XGETTEXT_EXECUTABLE)
-		MESSAGE(STATUS "Found xgettext: ${XGETTEXT_EXECUTABLE}")
-	ELSE(XGETTEXT_EXECUTABLE)
-		MESSAGE(FATAL_ERROR "xgettext not found")
-	ENDIF(XGETTEXT_EXECUTABLE)
+	find_program(XGETTEXT_EXECUTABLE xgettext)
+	if(XGETTEXT_EXECUTABLE)
+		message(STATUS "Found xgettext: ${XGETTEXT_EXECUTABLE}")
+	else()
+		message(FATAL_ERROR "xgettext not found")
+	endif(XGETTEXT_EXECUTABLE)
 endif(ENABLE_NLS)
 
 

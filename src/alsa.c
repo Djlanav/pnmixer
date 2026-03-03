@@ -633,21 +633,6 @@ unwatch_poll_descriptors(guint *watch_ids)
  * Public functions & signal handling
  */
 
-struct alsa_card {
-	gboolean normalize; /* Whether we work with normalized volume */
-	/* Card names */
-	char *name; /* Real card name like 'HDA Intel PCH' */
-	char *hctl; /* HTCL device name, like 'hw:0' */
-	/* Alsa data pointers */
-	snd_mixer_t *mixer; /* Alsa mixer */
-	snd_mixer_elem_t *mixer_elem; /* Alsa mixer elem */
-	/* Gio watch ids */
-	guint *watch_ids;
-	/* User callback, to notify when something happens */
-	AlsaCb cb_func;
-	gpointer cb_data;
-};
-
 /**
  * Callback function for volume changes.
  * We forward changes to higher level, through a callback mechanism again.

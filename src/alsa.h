@@ -22,18 +22,31 @@
 GSList *alsa_list_cards(void);
 GSList *alsa_list_channels(const char *card_name);
 
-typedef struct alsa_card AlsaCard;
-
-AlsaCard *alsa_card_new(const char *card, const char *channel, gboolean normalize);
-void alsa_card_free(AlsaCard *card);
-
 enum alsa_event {
 	ALSA_CARD_ERROR,
 	ALSA_CARD_DISCONNECTED,
 	ALSA_CARD_VALUES_CHANGED
 };
-
 typedef void (*AlsaCb) (enum alsa_event event, gpointer data);
+
+typedef struct alsa_card {
+	gboolean normalize; /* Whether we work with normalized volume */
+	/* Card names */
+	char *name; /* Real card name like 'HDA Intel PCH' */
+	char *hctl; /* HTCL device name, like 'hw:0' */
+	/* Alsa data pointers */
+	snd_mixer_t *mixer; /* Alsa mixer */
+	snd_mixer_elem_t *mixer_elem; /* Alsa mixer elem */
+	/* Gio watch ids */
+	guint *watch_ids;
+	/* User callback, to notify when something happens */
+	AlsaCb cb_func;
+	gpointer cb_data;
+} AlsaCard;
+
+AlsaCard *alsa_card_new(const char *card, const char *channel, gboolean normalize);
+void alsa_card_free(AlsaCard *card);
+
 void alsa_card_install_callback(AlsaCard *card, AlsaCb callback, gpointer data);
 
 const char *alsa_card_get_name(AlsaCard *card);

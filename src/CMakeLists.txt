@@ -18,6 +18,8 @@ set(PNMixer_sources
 	ui-popup-window.c
 	ui-prefs-dialog.c
 	ui-tray-icon.c
+	pulse.c
+	pulse.h
 )
 
 
@@ -32,6 +34,8 @@ set(default_deps
    	alsa
 	glib-2.0
 	x11
+	libpulse
+	libpulse-mainloop-glib
 )
 
 if(WITH_GTK3)

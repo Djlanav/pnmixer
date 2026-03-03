@@ -19,6 +19,12 @@
 
 #include <glib.h>
 
+/* Audio Backend Enum */
+typedef enum audio_backend {
+	ALSA,
+	PULSEAUDIO
+} AudioBackend;
+
 /* High-level audio functions, no need to have a soundcard ready for that */
 
 GSList *audio_get_card_list(void);
@@ -26,7 +32,32 @@ GSList *audio_get_channel_list(const char *card);
 
 /* Soundcard management */
 
-typedef struct audio Audio;
+typedef struct alsa_card AlsaCard;
+typedef struct audio {
+	/* Backend */
+	AudioBackend backend;
+	/* Preferences */
+	gdouble scroll_step;
+	gboolean normalize;
+	/* Underlying sound card */
+	// as per the comment, this just holds essentially a reference to the current soundcard
+	// This struct is found in alsa.c
+	AlsaCard *soundcard;
+	/* Cached value (to avoid querying the underlying
+	 * sound card each time we need the info).
+	 */
+	gchar *card;
+	gchar *channel;
+	/* Last action performed (volume/mute change) */
+	gint64 last_action_timestamp;
+	/* True if we're not working with the preferred card */
+	gboolean fallback;
+	gint64 fallback_last_check;
+	/* User signal handlers.
+	 * To be invoked when the audio status changes.
+	 */
+	GSList *handlers;
+} Audio;
 
 Audio *audio_new(void);
 void audio_free(Audio *audio);
