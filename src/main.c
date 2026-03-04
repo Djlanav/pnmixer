@@ -350,7 +350,8 @@ main(int argc, char *argv[])
 	gtk_init(&argc, &argv);
 
 	// PULSE AUDIO TEST
-	SPulseAudioState* pulse_audio_state = try_init_pulseaudio();
+	SPulseAudioState *pulse_audio_state = try_init_pulseaudio();
+	try_context_connect(pulse_audio_state);
 	free_pulseaudio(pulse_audio_state);
 
 	/* Load preferences.
