@@ -20,10 +20,16 @@
 
 #include <glib.h>
 
+#include <stdio.h>
+#include "support-log.h"
+#include <syslog.h>
+#include <pulse/pulseaudio.h>
+#include <pulse/glib-mainloop.h>
 #include "audio.h"
+#include "pulse.h"
+
 #include "alsa.h"
 #include "prefs.h"
-#include "support-log.h"
 
 /*
  * Enumeration to string, for friendly debug messages.
@@ -96,11 +102,11 @@ audio_event_new(Audio *audio, AudioSignal signal, AudioUser user)
 
 	event->signal = signal;
 	event->user = user;
-	event->card = audio_get_card(audio);
-	event->channel = audio_get_channel(audio);
-	event->has_mute = audio_has_mute(audio);
-	event->muted = audio_is_muted(audio);
-	event->volume = audio_get_volume(audio);
+	event->card = audio->vtable->get_card(audio);
+	event->channel = audio->vtable->get_channel(audio);
+	event->has_mute = audio->vtable->has_mute(audio);
+	event->muted = audio->vtable->is_muted(audio);
+	event->volume = audio->vtable->get_volume(audio);
 
 	return event;
 }
@@ -189,6 +195,83 @@ audio_handler_list_remove(GSList *list, AudioHandler *handler)
  * Public functions & signals handlers
  */
 
+const AudioVTable alsa_table = {
+	.free = audio_free,
+	.reload = audio_reload,
+	.get_card = audio_get_card,
+	.get_channel = audio_get_channel,
+	.has_mute = audio_has_mute,
+	.is_muted = audio_is_muted,
+	.toggle_mute = audio_toggle_mute,
+	.get_volume = audio_get_volume,
+	.set_volume = audio_set_volume,
+	.lower_volume = audio_lower_volume,
+	.raise_volume = audio_raise_volume,
+};
+
+const AudioVTable pa_table = {
+	.free = pulseaudio_free,
+	.reload = pulseaudio_reload,
+	.set_volume = pulseaudio_set_volume,
+};
+
+#define PULSEAUDIO_ENABLED 1
+
+void
+select_backend(Audio *audio)
+{
+#if PULSEAUDIO_ENABLED
+	SPulseAudioState *pa_state = init_pulseaudio(audio);
+	if (pa_state) {
+		audio->vtable = &pa_table;
+		audio->pa_state = pa_state;
+		syslog(LOG_USER | LOG_INFO, "PNMixer now using PulseAudio");
+	} else {
+		audio->vtable = &alsa_table;
+	}
+#else
+	audio->vtable = &alsa_table;
+#endif
+}
+
+void
+pulseaudio_free(Audio *audio)
+{
+	SPulseAudioState *pa_state = audio->pa_state;
+
+	if (pa_state != NULL)
+		free_pulseaudio(audio);
+}
+
+void
+pulseaudio_reload(Audio *audio)
+{
+	SPulseAudioState *pa_state = audio->pa_state;
+	pa_state->operation = PA_OPERATION_RELOAD;
+
+	if (!pa_state->is_context_connected)
+		try_context_connect(audio);
+
+	if (pa_state->phase == SERVER_CONNECTED)
+		pulseaudio_get_server_info(audio);
+}
+
+void
+pulseaudio_set_volume(Audio *audio, G_GNUC_UNUSED AudioUser user,
+						G_GNUC_UNUSED gdouble volume,
+						G_GNUC_UNUSED gint direction)
+{
+	SPulseAudioState *pa_state = audio->pa_state;
+	pa_state->operation = PA_SET_VOLUME;
+
+	if (!pa_state->is_context_connected)
+		try_context_connect(audio);
+
+	if (pa_state->phase == SERVER_CONNECTED) {
+
+	}
+}
+
 /**
  * Convenient function to invoke the handlers
  *
@@ -203,14 +286,16 @@ invoke_handlers(Audio *audio, AudioSignal signal, AudioUser user)
 	GSList *item;
 
 	/* Nothing to do if there is no handlers */
-	if (audio->handlers == NULL)
+	if (audio->handlers == NULL) {
+		printf("No handlers");
 		return;
+	}
 
 	/* Create a new event */
 	event = audio_event_new(audio, signal, user);
 
 	/* Invoke the various handlers around */
-	DEBUG("** Dispatching signal '%s' from '%s', vol=%lg, has_mute=%s, muted=%s",
+	printf("** Dispatching signal '%s' from '%s', vol=%lg, has_mute=%s, muted=%s",
 	      audio_signal_to_str(signal), audio_user_to_str(user),
 	      event->volume, event->has_mute ? "yes" : "no", event->muted ? "yes" : "no");
 
@@ -717,6 +802,7 @@ end:
 		alsa_card_install_callback(soundcard, on_alsa_event, audio);
 
 		/* Tell the world */
+		/* NOTE: This seems to run when PNMixer is first ran */
 		invoke_handlers(audio, AUDIO_CARD_INITIALIZED, AUDIO_USER_UNKNOWN);
 	}
 }
@@ -772,6 +858,8 @@ Audio *
 audio_new(void)
 {
 	Audio *audio = g_new0(Audio, 1);
+	select_backend(audio);
+
 	return audio;
 }
 

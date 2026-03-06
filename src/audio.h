@@ -19,35 +19,64 @@
 
 #include <glib.h>
 
-/* Audio Backend Enum */
-typedef enum audio_backend {
-	ALSA,
-	PULSEAUDIO
-} AudioBackend;
-
 /* High-level audio functions, no need to have a soundcard ready for that */
 
 GSList *audio_get_card_list(void);
 GSList *audio_get_channel_list(const char *card);
 
+/* Audio status: card & channel name, mute & volume handling.
+ * Everyone who changes the volume must say who he is.
+ */
+
+typedef enum audio_user {
+	AUDIO_USER_UNKNOWN,
+	AUDIO_USER_POPUP,
+	AUDIO_USER_TRAY_ICON,
+	AUDIO_USER_HOTKEYS,
+} AudioUser;
+
 /* Soundcard management */
 
 typedef struct alsa_card AlsaCard;
-typedef struct audio {
+typedef struct pulseaudiostate SPulseAudioState;
+typedef struct audio Audio;
+
+typedef struct audio_vtable {
+	void (*free)(Audio *audio);
+	void (*reload)(Audio *audio);
+	const gchar *(*get_card)(Audio *audio);
+	const gchar *(*get_channel)(Audio *audio);
+	gboolean (*has_mute)(Audio *audio);
+	gboolean (*is_muted)(Audio *audio);
+	void (*toggle_mute)(Audio *audio, AudioUser user);
+	gdouble (*get_volume)(Audio *audio);
+	void (*set_volume)(Audio *audio, AudioUser user, gdouble volume, gint direction);
+	void (*lower_volume)(Audio *audio, AudioUser user);
+	void (*raise_volume)(Audio *audio, AudioUser user);
+} AudioVTable;
+
+/* VTable for ALSA functions */
+extern const AudioVTable alsa_vtable;
+/* VTable for PulseAudio functions */
+extern const AudioVTable pa_vtable;
+
+struct audio {
 	/* Backend */
-	AudioBackend backend;
+	const AudioVTable *vtable;
 	/* Preferences */
 	gdouble scroll_step;
 	gboolean normalize;
 	/* Underlying sound card */
 	// as per the comment, this just holds essentially a reference to the current soundcard
-	// This struct is found in alsa.c
+	// This struct is found in alsa.c/alsa.h
 	AlsaCard *soundcard;
 	/* Cached value (to avoid querying the underlying
 	 * sound card each time we need the info).
 	 */
 	gchar *card;
 	gchar *channel;
+	/* Pulse Audio State (if PulseAudio is available on the system */
+	SPulseAudioState *pa_state;
 	/* Last action performed (volume/mute change) */
 	gint64 last_action_timestamp;
 	/* True if we're not working with the preferred card */
@@ -57,24 +86,16 @@ typedef struct audio {
 	 * To be invoked when the audio status changes.
 	 */
 	GSList *handlers;
-} Audio;
-
-Audio *audio_new(void);
-void audio_free(Audio *audio);
-void audio_reload(Audio *audio);
-
-/* Audio status: card & channel name, mute & volume handling.
- * Everyone who changes the volume must say who he is.
- */
-
-enum audio_user {
-	AUDIO_USER_UNKNOWN,
-	AUDIO_USER_POPUP,
-	AUDIO_USER_TRAY_ICON,
-	AUDIO_USER_HOTKEYS,
 };
 
-typedef enum audio_user AudioUser;
+Audio *audio_new(void);
+void select_backend(Audio *audio);
+
+/*
+ * Legacy ALSA-based audio functions
+ */
+void audio_free(Audio *audio);
+void audio_reload(Audio *audio);
 
 const char *audio_get_card(Audio *audio);
 const char *audio_get_channel(Audio *audio);
@@ -85,6 +106,13 @@ gdouble audio_get_volume(Audio *audio);
 void audio_set_volume(Audio *audio, AudioUser user, gdouble volume, gint direction);
 void audio_lower_volume(Audio *audio, AudioUser user);
 void audio_raise_volume(Audio *audio, AudioUser user);
+
+/*
+ * PulseAudio functions
+ */
+void pulseaudio_free(Audio *audio);
+void pulseaudio_reload(Audio *audio);
+void pulseaudio_set_volume(Audio *audio, AudioUser user, gdouble volume, gint direction);
 
 /* Signal handling.
  * The audio system sends signals out there when something happens.

@@ -34,7 +34,7 @@ get_data_file(const char *pathname)
 	gchar *path;
 
 #ifdef DATA_IN_CWD
-	path = g_build_filename(".", "data", pathname, NULL);
+	path = g_build_filename("..", "data", pathname, NULL);
 	if (g_file_test(path, G_FILE_TEST_EXISTS))
 		return path;
 	g_free(path);

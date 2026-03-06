@@ -9,10 +9,28 @@ struct pa_mainloop_api;
 struct pa_glib_mainloop;
 struct pa_context;
 
+typedef struct audio Audio;
+
 typedef enum result {
     SUCCESS,
     FAILURE,
 } EResult;
+
+typedef enum e_pulseaudio_operation {
+    PA_OPERATION_RELOAD,
+    PA_GET_SINK_INFO,
+    PA_SET_VOLUME,
+} PulseAudioOperation;
+
+typedef enum e_pulseaudio_phase {
+    CONNECTING_SERVER,
+    SERVER_CONNECTED,
+    GETTING_SERVER_INFO,
+    SERVER_INFO_READY,
+    GETTING_SINK_INFO,
+    SINK_INFO_READY,
+    OPERATION_COMPLETE,
+} PulseAudioPhase;
 
 typedef struct pulseaudioinfo {
     gchar *default_sink_name;
@@ -25,21 +43,31 @@ typedef struct pulseaudiostate {
     pa_mainloop_api* mainloop_api;
     pa_glib_mainloop* mainloop;
     pa_context* context;
+    pa_server_info* server_info;
+    pa_sink_info *sink_info;
+
+    PulseAudioOperation operation;
+    PulseAudioPhase phase;
+
+    gboolean is_context_connected;
 
     SPulseAudioInfo* info;
-    gboolean has_sink_name;
-
-    // test loop state
-    gboolean ready;
-    gboolean failed;
 
     GMainLoop* loop;
+
+    void(*destructor)(struct pulseaudiostate *this);
 } SPulseAudioState;
 
-SPulseAudioState* try_init_pulseaudio();
-void try_context_connect(SPulseAudioState* pulse_audio_state);
+
+
+SPulseAudioState* init_pulseaudio(Audio *audio);
+void try_context_connect(Audio *audio);
 void on_context_state_changed(pa_context *context, void *user_data);
-void on_context_ready(SPulseAudioState* pulse_audio_state);
-void free_pulseaudio(SPulseAudioState* state);
+void on_context_ready(Audio *audio);
+void free_pulseaudio(Audio *state);
+
+void pulseaudio_get_server_info(Audio *audio);
+void pulseaudio_get_sink_info_by_name(Audio *audio, const gchar *sink_name);
+void pulseaudio_get_sink_info_by_index(Audio *audio, guint32 index);
 
 #endif //PNMIXER_PULSE_H

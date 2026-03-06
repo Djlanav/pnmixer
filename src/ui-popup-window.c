@@ -303,16 +303,15 @@ void
 on_vol_scale_value_changed(GtkRange *range, PopupWindow *window)
 {
 	// NOTE: This function appears to be the signal GTK calls when the volume slider is adjusted
+	// NOTE: Confirmed (3/4/2026)
 
 	gdouble value;
 
-	value = gtk_range_get_value(range); // NOTE: This must get the value from the UI
+	value = gtk_range_get_value(range); // NOTE: This probably get the value from the UI
 
-	/*
-	 * This function is found in audio.c
-	 *  This function is what calls into ALSA to change the volume
-	*/
-	audio_set_volume(window->audio, AUDIO_USER_POPUP, value, 0);
+	Audio *audio = window->audio;
+	audio->vtable->set_volume(audio, AUDIO_USER_POPUP, value, 0);
+	//audio_set_volume(window->audio, AUDIO_USER_POPUP, value, 0);
 }
 
 /**

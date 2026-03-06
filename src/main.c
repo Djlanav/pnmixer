@@ -23,6 +23,11 @@
 #include <stdlib.h>
 #include <glib.h>
 
+/* PulseAudio includes */
+#include <pulse/pulseaudio.h>
+#include <pulse/glib-mainloop.h>
+#include "pulse.h"
+
 #include "main.h"
 #include "audio.h"
 #include "notif.h"
@@ -35,9 +40,6 @@
 #include "ui-popup-menu.h"
 #include "ui-popup-window.h"
 #include "ui-tray-icon.h"
-#include <pulse/pulseaudio.h>
-#include <pulse/glib-mainloop.h>
-#include "pulse.h"
 
 /* Life-long instances */
 static Audio *audio;
@@ -349,11 +351,6 @@ main(int argc, char *argv[])
 	/* Init Gtk+ */
 	gtk_init(&argc, &argv);
 
-	// PULSE AUDIO TEST
-	SPulseAudioState *pulse_audio_state = try_init_pulseaudio();
-	try_context_connect(pulse_audio_state);
-	free_pulseaudio(pulse_audio_state);
-
 	/* Load preferences.
 	 * This must be done at first, all the following init code rely on it.
 	 */
@@ -377,7 +374,7 @@ main(int argc, char *argv[])
 
 	/* Get the audio system ready */
 	audio_signals_connect(audio, on_audio_changed, NULL);
-	audio_reload(audio);
+	audio->vtable->reload(audio);
 
 	/* Run */
 	DEBUG("---- Running main loop ----");

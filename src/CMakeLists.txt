@@ -22,6 +22,9 @@ set(PNMixer_sources
 	pulse.h
 )
 
+## This fixes the program crashing due to not being able to find the signal handlers
+## Probably a band-aid fix but whatev
+set(CMAKE_EXE_LINKER_FLAGS "-rdynamic")
 
 ## includes
 include_directories(
