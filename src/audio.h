@@ -41,6 +41,16 @@ typedef struct alsa_card AlsaCard;
 typedef struct pulseaudiostate SPulseAudioState;
 typedef struct audio Audio;
 
+typedef enum audio_signal AudioSignal;
+enum audio_signal {
+	AUDIO_NO_CARD,
+	AUDIO_CARD_INITIALIZED,
+	AUDIO_CARD_CLEANED_UP,
+	AUDIO_CARD_DISCONNECTED,
+	AUDIO_CARD_ERROR,
+	AUDIO_VALUES_CHANGED,
+};
+
 typedef struct audio_vtable {
 	void (*free)(Audio *audio);
 	void (*reload)(Audio *audio);
@@ -90,6 +100,7 @@ struct audio {
 
 Audio *audio_new(void);
 void select_backend(Audio *audio);
+void invoke_handlers(Audio *audio, AudioSignal signal, AudioUser user);
 
 /*
  * Legacy ALSA-based audio functions
@@ -110,24 +121,23 @@ void audio_raise_volume(Audio *audio, AudioUser user);
 /*
  * PulseAudio functions
  */
+
+typedef struct audio_user_data {
+	Audio *audio;
+	AudioSignal signal;
+	AudioUser user;
+	GSList *extra;
+} AudioUserData;
+
 void pulseaudio_free(Audio *audio);
 void pulseaudio_reload(Audio *audio);
 void pulseaudio_set_volume(Audio *audio, AudioUser user, gdouble volume, gint direction);
+gdouble pulseaudio_get_volume(Audio *audio);
+gboolean pulseaudio_is_muted(Audio *audio);
 
 /* Signal handling.
  * The audio system sends signals out there when something happens.
  */
-
-enum audio_signal {
-	AUDIO_NO_CARD,
-	AUDIO_CARD_INITIALIZED,
-	AUDIO_CARD_CLEANED_UP,
-	AUDIO_CARD_DISCONNECTED,
-	AUDIO_CARD_ERROR,
-	AUDIO_VALUES_CHANGED,
-};
-
-typedef enum audio_signal AudioSignal;
 
 struct audio_event {
 	AudioSignal signal;

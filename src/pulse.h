@@ -20,6 +20,8 @@ typedef enum e_pulseaudio_operation {
     PA_OPERATION_RELOAD,
     PA_GET_SINK_INFO,
     PA_SET_VOLUME,
+    PA_CHECK_FOR_MUTED,
+    PA_GET_VOLUME,
 } PulseAudioOperation;
 
 typedef enum e_pulseaudio_phase {
@@ -29,6 +31,10 @@ typedef enum e_pulseaudio_phase {
     SERVER_INFO_READY,
     GETTING_SINK_INFO,
     SINK_INFO_READY,
+    SETTING_LOCAL_VOLUME,
+    SETTING_SINK_VOLUME,
+    GETTING_SINK_VOLUME,
+    CHECKING_MUTED,
     OPERATION_COMPLETE,
 } PulseAudioPhase;
 
@@ -58,8 +64,6 @@ typedef struct pulseaudiostate {
     void(*destructor)(struct pulseaudiostate *this);
 } SPulseAudioState;
 
-
-
 SPulseAudioState* init_pulseaudio(Audio *audio);
 void try_context_connect(Audio *audio);
 void on_context_state_changed(pa_context *context, void *user_data);
@@ -69,5 +73,6 @@ void free_pulseaudio(Audio *state);
 void pulseaudio_get_server_info(Audio *audio);
 void pulseaudio_get_sink_info_by_name(Audio *audio, const gchar *sink_name);
 void pulseaudio_get_sink_info_by_index(Audio *audio, guint32 index);
+void pulseaudio_set_sink_volume_by_name(Audio *audio, AudioUserData *user_data, const gchar *sink_name);
 
 #endif //PNMIXER_PULSE_H

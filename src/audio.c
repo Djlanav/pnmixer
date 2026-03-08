@@ -191,6 +191,42 @@ audio_handler_list_remove(GSList *list, AudioHandler *handler)
 	return list;
 }
 
+/**
+ * Convenient function to invoke the handlers
+ *
+ * @param audio an Audio instance.
+ * @param signal the signal to dispatch.
+ * @param user the user that made the action.
+ */
+void
+invoke_handlers(Audio *audio, AudioSignal signal, AudioUser user)
+{
+	AudioEvent *event;
+	GSList *item;
+
+	/* Nothing to do if there is no handlers */
+	if (audio->handlers == NULL) {
+		printf("No handlers");
+		return;
+	}
+
+	/* Create a new event */
+	event = audio_event_new(audio, signal, user);
+
+	/* Invoke the various handlers around */
+	printf("** Dispatching signal '%s' from '%s', vol=%lg, has_mute=%s, muted=%s",
+		  audio_signal_to_str(signal), audio_user_to_str(user),
+		  event->volume, event->has_mute ? "yes" : "no", event->muted ? "yes" : "no");
+
+	for (item = audio->handlers; item; item = item->next) {
+		AudioHandler *handler = item->data;
+		handler->callback(audio, event, handler->data);
+	}
+
+	/* Then free the event */
+	audio_event_free(event);
+}
+
 /*
  * Public functions & signals handlers
  */
@@ -213,6 +249,8 @@ const AudioVTable pa_table = {
 	.free = pulseaudio_free,
 	.reload = pulseaudio_reload,
 	.set_volume = pulseaudio_set_volume,
+	.get_volume = pulseaudio_get_volume,
+	.is_muted = pulseaudio_is_muted,
 };
 
 #define PULSEAUDIO_ENABLED 1
@@ -257,8 +295,8 @@ pulseaudio_reload(Audio *audio)
 }
 
 void
-pulseaudio_set_volume(Audio *audio, G_GNUC_UNUSED AudioUser user,
-						G_GNUC_UNUSED gdouble volume,
+pulseaudio_set_volume(Audio *audio, AudioUser user,
+						gdouble volume,
 						G_GNUC_UNUSED gint direction)
 {
 	SPulseAudioState *pa_state = audio->pa_state;
@@ -267,45 +305,74 @@ pulseaudio_set_volume(Audio *audio, G_GNUC_UNUSED AudioUser user,
 	if (!pa_state->is_context_connected)
 		try_context_connect(audio);
 
-	if (pa_state->phase == SERVER_CONNECTED) {
+	if (pa_state->phase == SERVER_CONNECTED && pa_state->sink_info != NULL) {
+		pa_state->phase = SETTING_LOCAL_VOLUME;
 
+		pa_cvolume v = pa_state->sink_info->volume;
+		guint32 channels = pa_state->sink_info->channel_map.channels;
+
+		pa_cvolume* new_v = pa_cvolume_set(&v, channels, (guint32)volume);
+		GSList* extra_data = g_slist_append(NULL, new_v);
+
+		AudioUserData *data = g_new(AudioUserData, 1);
+		data->audio = audio;
+		data->user = user;
+		data->signal = AUDIO_VALUES_CHANGED;
+		data->extra = extra_data;
+
+		pulseaudio_set_sink_volume_by_name(audio, data, pa_state->sink_info->name);
 	}
 }
 
-/**
- * Convenient function to invoke the handlers
- *
- * @param audio an Audio instance.
- * @param signal the signal to dispatch.
- * @param user the user that made the action.
- */
-static void
-invoke_handlers(Audio *audio, AudioSignal signal, AudioUser user)
+void pulseaudio_has_mute(Audio *audio)
 {
-	AudioEvent *event;
-	GSList *item;
+	SPulseAudioState *pa_state = audio->pa_state;
+	if (!pa_state->is_context_connected) {
+		try_context_connect(audio);
+	}
+}
 
-	/* Nothing to do if there is no handlers */
-	if (audio->handlers == NULL) {
-		printf("No handlers");
-		return;
+gdouble
+pulseaudio_get_volume(Audio *audio)
+{
+	SPulseAudioState *pa_state = audio->pa_state;
+	if (!pa_state->is_context_connected) {
+		try_context_connect(audio);
 	}
 
-	/* Create a new event */
-	event = audio_event_new(audio, signal, user);
+	// TODO
+	pa_state->operation = PA_GET_VOLUME;
+	if (pa_state->phase == SERVER_CONNECTED && pa_state->sink_info != NULL) {
+		pa_state->phase = GETTING_SINK_VOLUME;
 
-	/* Invoke the various handlers around */
-	printf("** Dispatching signal '%s' from '%s', vol=%lg, has_mute=%s, muted=%s",
-	      audio_signal_to_str(signal), audio_user_to_str(user),
-	      event->volume, event->has_mute ? "yes" : "no", event->muted ? "yes" : "no");
+		pa_cvolume v = pa_state->sink_info->volume;
+		guint32 avg_vol = pa_cvolume_avg(&v) * 100 / PA_VOLUME_NORM;
 
-	for (item = audio->handlers; item; item = item->next) {
-		AudioHandler *handler = item->data;
-		handler->callback(audio, event, handler->data);
+		return avg_vol;
 	}
 
-	/* Then free the event */
-	audio_event_free(event);
+	return -1;
+}
+
+gboolean
+pulseaudio_is_muted(Audio *audio)
+{
+	SPulseAudioState *pa_state = audio->pa_state;
+	pa_state->operation = PA_CHECK_FOR_MUTED;
+
+	if (!pa_state->is_context_connected) {
+		try_context_connect(audio);
+	}
+
+	if (pa_state->phase == SERVER_CONNECTED && pa_state->sink_info != NULL) {
+		pa_state->phase = CHECKING_MUTED;
+
+		pa_cvolume v = pa_state->sink_info->volume;
+		gboolean is_muted = pa_cvolume_is_muted(&v);
+		return is_muted;
+	}
+
+	return -1;
 }
 
 /**

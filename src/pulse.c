@@ -11,13 +11,6 @@
 
 /* Private functions */
 
-/**
- * Callback for pa_context_get_sink_info_by_* functions
- * @param context PulseAudio Context
- * @param info Sink information struct
- * @param eol Positive number if object list is exhausted
- * @param user_data User data passed to the callback
- */
 static void
 on_context_get_sink_info(G_GNUC_UNUSED pa_context *context, const pa_sink_info *info, gint32 eol, void *user_data)
 {
@@ -65,6 +58,24 @@ pulse_audio_state_destructor(SPulseAudioState *pulse_audio_state)
     g_free(pulse_audio_state);
 }
 
+static void
+on_context_success(G_GNUC_UNUSED pa_context *context, G_GNUC_UNUSED gint32 success, void *user_data)
+{
+    AudioUserData *data = user_data;
+    Audio *audio = data->audio;
+    SPulseAudioState *pa_state = audio->pa_state;
+    syslog(LOG_USER | LOG_INFO, "PulseAudio set volume");
+
+    if (pa_state->operation == PA_SET_VOLUME && pa_state->phase == SETTING_SINK_VOLUME) {
+        invoke_handlers(audio, data->signal, data->user);
+    }
+
+    if (pa_state->phase == OPERATION_COMPLETE) {
+        g_slist_free(data->extra);
+        g_free(data);
+    }
+}
+
 /* Public functions */
 
 void
@@ -79,6 +90,17 @@ pulseaudio_get_sink_info_by_index(Audio *audio, const guint32 index)
 {
     SPulseAudioState *pa_state = audio->pa_state;
     pa_context_get_sink_info_by_index(pa_state->context, index, on_context_get_sink_info, audio);
+}
+
+void
+pulseaudio_set_sink_volume_by_name(Audio *audio, AudioUserData *user_data, const gchar *sink_name)
+{
+    SPulseAudioState *pa_state = audio->pa_state;
+    GSList* extra = user_data->extra;
+    pa_cvolume* volume = g_slist_nth_data(extra, 0);
+
+    pa_state->phase = SETTING_SINK_VOLUME;
+    pa_context_set_sink_volume_by_name(pa_state->context, sink_name, volume, on_context_success, user_data);
 }
 
 SPulseAudioState*
